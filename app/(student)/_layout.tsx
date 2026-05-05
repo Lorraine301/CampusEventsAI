@@ -1,24 +1,26 @@
 import { Tabs } from "expo-router";
-import { Text, TouchableOpacity } from "react-native";
-import { useAuth } from "../../context/AuthContext";
+import { Text } from "react-native";
 
 export default function StudentLayout() {
-  const { logout } = useAuth();
-
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: "#6C63FF",
         tabBarInactiveTintColor: "#999",
-        tabBarStyle: { paddingBottom: 4 },
+        tabBarStyle: {
+          paddingBottom: 6,
+          paddingTop: 4,
+          height: 62,
+          borderTopWidth: 0,
+          elevation: 12,
+          shadowColor: "#6C63FF",
+          shadowOpacity: 0.12,
+          shadowOffset: { width: 0, height: -4 },
+          shadowRadius: 16,
+        },
         headerStyle: { backgroundColor: "#6C63FF" },
         headerTintColor: "#fff",
         headerTitleStyle: { fontWeight: "700" },
-        headerRight: () => (
-          <TouchableOpacity onPress={logout} style={{ marginRight: 16 }}>
-            <Text style={{ color: "#fff", fontSize: 14 }}>Déconnexion</Text>
-          </TouchableOpacity>
-        ),
       }}
     >
       <Tabs.Screen
@@ -27,7 +29,7 @@ export default function StudentLayout() {
           title: "Événements",
           tabBarLabel: "Événements",
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>📅</Text>
+            <Text style={{ fontSize: 22, color }}>📅</Text>
           ),
           headerShown: false,
         }}
@@ -38,17 +40,17 @@ export default function StudentLayout() {
           title: "Favoris",
           tabBarLabel: "Favoris",
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>❤️</Text>
+            <Text style={{ fontSize: 22, color }}>❤️</Text>
           ),
         }}
       />
       <Tabs.Screen
         name="registrations"
         options={{
-          title: "Mes inscriptions",
+          title: "Inscriptions",
           tabBarLabel: "Inscriptions",
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>🎫</Text>
+            <Text style={{ fontSize: 22, color }}>🎫</Text>
           ),
         }}
       />
@@ -58,7 +60,17 @@ export default function StudentLayout() {
           title: "Assistant IA",
           tabBarLabel: "Assistant",
           tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 20, color }}>🤖</Text>
+            <Text style={{ fontSize: 22, color }}>🤖</Text>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Mon profil",
+          tabBarLabel: "Profil",
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 22, color }}>👤</Text>
           ),
         }}
       />

@@ -7,6 +7,13 @@ export interface User {
 
 export type EventCategory = "Talk" | "Workshop" | "Club" | "Exam" | "Other";
 
+export type LLMResultType =
+  | "search"
+  | "recommendation"
+  | "planning"
+  | "qa"
+  | "weekly";
+
 export interface Event {
   id: string;
   title: string;
@@ -42,8 +49,17 @@ export interface LLMResult {
   id: string;
   eventId?: string;
   userId: string;
-  type: "search" | "recommendation" | "planning" | "qa";
+  type: LLMResultType;
   inputText: string;
   outputText: string;
   createdAt: string;
+}
+
+export interface StudentProfile {
+  userId: string;
+  displayName: string;
+  filiere: string;
+  annee: "1" | "2" | "3" | "4" | "5";
+  interests: string[];
+  updatedAt: string;
 }

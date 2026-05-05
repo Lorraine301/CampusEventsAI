@@ -1,4 +1,6 @@
+import * as FileSystem from "expo-file-system/legacy";
 import { useFocusEffect, useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
 import React, { useCallback, useState } from "react";
 import {
   Alert,
@@ -16,6 +18,12 @@ export default function AdminHome() {
   const router = useRouter();
   const [events, setEvents] = useState<Event[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const stats = {
+    total: events.length,
+    upcoming: events.filter((e) => new Date(e.startDateTime) >= new Date())
+      .length,
+    past: events.filter((e) => new Date(e.startDateTime) < new Date()).length,
+  };
 
   const loadEvents = useCallback(() => {
     const data = eventsDb.getAll();
@@ -109,14 +117,50 @@ export default function AdminHome() {
       </View>
     </View>
   );
+  const handleExport = async () => {
+    try {
+      const json = JSON.stringify(events, null, 2);
+      const path = FileSystem.documentDirectory + "campus_events_export.json";
+      await FileSystem.writeAsStringAsync(path, json);
+      await Sharing.shareAsync(path, {
+        mimeType: "application/json",
+        dialogTitle: "Exporter le catalogue",
+      });
+    } catch {
+      Alert.alert("Erreur", "Impossible d'exporter.");
+    }
+  };
 
   return (
     <View style={styles.container}>
+      {/* Stats */}
+      <View style={styles.statsRow}>
+        <View style={[styles.statCard, { borderTopColor: "#6C63FF" }]}>
+          <Text style={styles.statNumber}>{stats.total}</Text>
+          <Text style={styles.statLabel}>Total</Text>
+        </View>
+        <View style={[styles.statCard, { borderTopColor: "#43C6AC" }]}>
+          <Text style={[styles.statNumber, { color: "#43C6AC" }]}>
+            {stats.upcoming}
+          </Text>
+          <Text style={styles.statLabel}>À venir</Text>
+        </View>
+        <View style={[styles.statCard, { borderTopColor: "#F7971E" }]}>
+          <Text style={[styles.statNumber, { color: "#F7971E" }]}>
+            {stats.past}
+          </Text>
+          <Text style={styles.statLabel}>Passés</Text>
+        </View>
+      </View>
+      <TouchableOpacity style={styles.exportButton} onPress={handleExport}>
+        <Text style={styles.exportButtonText}>📤 Exporter JSON</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity
         style={styles.createButton}
         onPress={() => router.push("/(admin)/create")}
       >
-        <Text style={styles.createButtonText}>+ Créer un événement</Text>
+        <Text style={styles.createButtonText}>＋ Créer un événement</Text>
       </TouchableOpacity>
 
       <FlatList
@@ -129,7 +173,7 @@ export default function AdminHome() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>📭</Text>
-            <Text style={styles.emptyText}>Aucun événement pour instant</Text>
+            <Text style={styles.emptyText}>Aucun événement pour le moment</Text>
             <Text style={styles.emptySubText}>
               Crée ton premier événement !
             </Text>
@@ -201,4 +245,25 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyText: { fontSize: 18, fontWeight: "600", color: "#555" },
   emptySubText: { fontSize: 14, color: "#999", marginTop: 4 },
+  statsRow: { flexDirection: "row", gap: 10, marginBottom: 14 },
+  statCard: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+    alignItems: "center",
+    borderTopWidth: 3,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+  },
+  statNumber: { fontSize: 26, fontWeight: "800", color: "#6C63FF" },
+  statLabel: { fontSize: 12, color: "#999", marginTop: 2, fontWeight: "500" },
+  exportButton: {
+    borderWidth: 1.5, borderColor: '#6C63FF', borderRadius: 12,
+    padding: 12, alignItems: 'center', marginBottom: 10,
+  },
+  exportButtonText: { color: '#6C63FF', fontSize: 14, fontWeight: '600' },
 });

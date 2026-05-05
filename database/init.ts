@@ -47,6 +47,15 @@ export function initDatabase() {
       outputText TEXT NOT NULL,
       createdAt TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS profiles (
+      userId TEXT PRIMARY KEY,
+      displayName TEXT NOT NULL,
+      filiere TEXT NOT NULL,
+      annee TEXT NOT NULL,
+      interests TEXT NOT NULL DEFAULT '[]',
+      updatedAt TEXT NOT NULL
+    );
   `);
 }
 
