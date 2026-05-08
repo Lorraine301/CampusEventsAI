@@ -1,9 +1,9 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
-import "react-native-get-random-values";
-import { AuthProvider, useAuth } from "../context/AuthContext";
-
 import { ActivityIndicator, View } from "react-native";
+import "react-native-get-random-values";
+
+import { AuthProvider, useAuth } from "../context/AuthContext";
 import { initDatabase } from "../database/init";
 
 initDatabase();
@@ -15,12 +15,16 @@ function RootLayoutNav() {
 
   useEffect(() => {
     if (isLoading) return;
-    const inAuth = segments[0] === "(auth)";
-    const inWelcome = segments[0] === "welcome";
 
-    if (!user && !inAuth && !inWelcome) {
-      router.replace("/welcome");
-    } else if (user && (inAuth || inWelcome)) {
+    const inAuth = segments[0] === "(auth)";
+
+    // Si pas connecté → login
+    if (!user && !inAuth) {
+      router.replace("/(auth)/login");
+    }
+
+    // Si connecté et dans auth → redirection selon rôle
+    else if (user && inAuth) {
       if (user.role === "admin") {
         router.replace("/(admin)");
       } else {
