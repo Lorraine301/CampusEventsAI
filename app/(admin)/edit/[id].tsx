@@ -1,6 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Save } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -9,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
 import { eventsDb } from "../../../database/events";
 import { EventCategory } from "../../../types";
 
@@ -307,9 +310,16 @@ export default function EditEvent() {
         onPress={handleSave}
         disabled={loading}
       >
-        <Text style={styles.submitButtonText}>
-          {loading ? "Sauvegarde..." : "💾 Sauvegarder les modifications"}
-        </Text>
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Save size={18} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.submitButtonText}>
+              Sauvegarder les modifications
+            </Text>
+          </>
+        )}
       </TouchableOpacity>
 
       <View style={{ height: 40 }} />

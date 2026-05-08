@@ -1,6 +1,16 @@
+import {
+  AlertCircle,
+  Eye,
+  EyeOff,
+  GraduationCap,
+  Lock,
+  Mail,
+  ShieldCheck,
+  User,
+} from "lucide-react-native";
+
 import React, { useState } from "react";
 import {
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   StatusBar,
@@ -10,9 +20,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useAuth } from "../../context/AuthContext";
 
-const { height } = Dimensions.get("window");
+import { useAuth } from "../../context/AuthContext";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -20,18 +29,26 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPass, setShowPass] = useState(false);
+
   const { login } = useAuth();
 
   const handleLogin = async () => {
     setError("");
+
     if (!email || !password) {
       setError("Remplis tous les champs.");
       return;
     }
+
     setLoading(true);
+
     const success = await login(email.trim(), password);
+
     setLoading(false);
-    if (!success) setError("Email ou mot de passe incorrect.");
+
+    if (!success) {
+      setError("Email ou mot de passe incorrect.");
+    }
   };
 
   return (
@@ -39,112 +56,155 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#6C63FF" />
+      <StatusBar barStyle="light-content" backgroundColor="#1F1D3A" />
 
-      {/* Fond violet haut */}
-      <View style={styles.topBg}>
-        <View style={styles.circle1} />
-        <View style={styles.circle2} />
-        <Text style={styles.appLogo}>🎓</Text>
-        <Text style={styles.appName}>CampusEvents AI</Text>
-        <Text style={styles.appTagline}>
-          Ton agenda universitaire intelligent
+      {/* HEADER */}
+      <View style={styles.topSection}>
+        <View style={styles.logoWrap}>
+          <GraduationCap size={34} color="#fff" strokeWidth={2.2} />
+        </View>
+
+        <Text style={styles.appName}>CampusEvents</Text>
+
+        <Text style={styles.appSub}>
+          Plateforme intelligente des événements universitaires
         </Text>
+
+        <View style={styles.badgeRow}>
+          <View style={styles.badge}>
+            <ShieldCheck size={13} color="#A5B4FC" />
+            <Text style={styles.badgeText}>Sécurisé</Text>
+          </View>
+
+          <View style={styles.badge}>
+            <User size={13} color="#A5B4FC" />
+            <Text style={styles.badgeText}>Étudiants & Admins</Text>
+          </View>
+        </View>
       </View>
 
-      {/* Carte de connexion */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Connexion</Text>
+      {/* FORM */}
+      <View style={styles.formCard}>
+        <Text style={styles.formTitle}>Connexion</Text>
 
         {error !== "" && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>⚠️ {error}</Text>
+          <View style={styles.errorBox}>
+            <AlertCircle size={14} color="#DC2626" style={{ marginRight: 8 }} />
+
+            <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
 
-        <Text style={styles.label}>Email</Text>
+        {/* EMAIL */}
+        <Text style={styles.label}>Adresse email</Text>
+
         <View style={styles.inputWrapper}>
-          <Text style={styles.inputIcon}>✉️</Text>
+          <Mail size={18} color="#9CA3AF" style={{ marginLeft: 14 }} />
+
           <TextInput
-            style={styles.input}
+            style={styles.inputWithIcon}
             value={email}
             onChangeText={(t) => {
               setEmail(t);
               setError("");
             }}
-            placeholder="ton@email.ma"
-            placeholderTextColor="#C0BDD8"
+            placeholder="exemple@campus.ma"
+            placeholderTextColor="#BEC3CF"
             autoCapitalize="none"
             keyboardType="email-address"
           />
         </View>
 
+        {/* PASSWORD */}
         <Text style={styles.label}>Mot de passe</Text>
-        <View style={styles.inputWrapper}>
-          <Text style={styles.inputIcon}>🔒</Text>
+
+        <View style={styles.passwordWrapper}>
+          <Lock size={18} color="#9CA3AF" style={{ marginLeft: 14 }} />
+
           <TextInput
-            style={styles.input}
+            style={styles.passwordInput}
             value={password}
             onChangeText={(t) => {
               setPassword(t);
               setError("");
             }}
             placeholder="••••••••"
-            placeholderTextColor="#C0BDD8"
+            placeholderTextColor="#BEC3CF"
             secureTextEntry={!showPass}
           />
+
           <TouchableOpacity
             onPress={() => setShowPass(!showPass)}
             style={styles.eyeBtn}
           >
-            <Text style={styles.eyeIcon}>{showPass ? "🙈" : "👁️"}</Text>
+            {showPass ? (
+              <EyeOff size={18} color="#5B52E8" />
+            ) : (
+              <Eye size={18} color="#5B52E8" />
+            )}
           </TouchableOpacity>
         </View>
 
+        {/* LOGIN BUTTON */}
         <TouchableOpacity
           style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
           onPress={handleLogin}
           disabled={loading}
-          activeOpacity={0.85}
+          activeOpacity={0.88}
         >
           <Text style={styles.loginBtnText}>
-            {loading ? "Connexion..." : "Se connecter →"}
+            {loading ? "Connexion..." : "Se connecter"}
           </Text>
         </TouchableOpacity>
 
-        {/* Comptes démo */}
-        <View style={styles.demoSection}>
-          <View style={styles.demoDivider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Comptes de démo</Text>
-            <View style={styles.dividerLine} />
-          </View>
-          <View style={styles.demoCards}>
-            <TouchableOpacity
-              style={styles.demoCard}
-              onPress={() => {
-                setEmail("admin@campus.ma");
-                setPassword("admin123");
-                setError("");
-              }}
-            >
-              <Text style={styles.demoCardIcon}>⚙️</Text>
-              <Text style={styles.demoCardRole}>Admin</Text>
-              <Text style={styles.demoCardEmail}>admin@campus.ma</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.demoCard}
-              onPress={() => {
-                setEmail("etudiant@campus.ma");
-                setPassword("etudiant123");
-                setError("");
-              }}
-            >
-              <Text style={styles.demoCardIcon}>🎓</Text>
-              <Text style={styles.demoCardRole}>Étudiant</Text>
-              <Text style={styles.demoCardEmail}>etudiant@campus.ma</Text>
-            </TouchableOpacity>
-          </View>
+        {/* DIVIDER */}
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+
+          <Text style={styles.dividerText}>comptes de démonstration</Text>
+
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* DEMO ACCOUNTS */}
+        <View style={styles.demoRow}>
+          <TouchableOpacity
+            style={styles.demoBtn}
+            onPress={() => {
+              setEmail("admin@campus.ma");
+              setPassword("admin123");
+              setError("");
+            }}
+          >
+            <View style={styles.demoIconAdmin}>
+              <ShieldCheck size={15} color="#fff" />
+            </View>
+
+            <View>
+              <Text style={styles.demoBtnRole}>Administrateur</Text>
+
+              <Text style={styles.demoBtnEmail}>admin@campus.ma</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.demoBtn}
+            onPress={() => {
+              setEmail("etudiant@campus.ma");
+              setPassword("etudiant123");
+              setError("");
+            }}
+          >
+            <View style={styles.demoIconStudent}>
+              <GraduationCap size={15} color="#fff" />
+            </View>
+
+            <View>
+              <Text style={styles.demoBtnRole}>Étudiant</Text>
+
+              <Text style={styles.demoBtnEmail}>etudiant@campus.ma</Text>
+            </View>
+          </TouchableOpacity>
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -152,127 +212,264 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#6C63FF" },
-  topBg: {
-    height: height * 0.38,
+  container: {
+    flex: 1,
+    backgroundColor: "#1F1D3A",
+  },
+
+  // HEADER
+
+  topSection: {
+    flex: 0.4,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
+    paddingHorizontal: 30,
   },
-  circle1: {
-    position: "absolute",
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: "rgba(255,255,255,0.07)",
-    top: -60,
-    right: -60,
+
+  logoWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    backgroundColor: "#5B52E8",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+
+    shadowColor: "#5B52E8",
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+    elevation: 6,
   },
-  circle2: {
-    position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: "rgba(255,255,255,0.07)",
-    bottom: -40,
-    left: -40,
-  },
-  appLogo: { fontSize: 52, marginBottom: 10 },
+
   appName: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: "800",
     color: "#fff",
-    letterSpacing: 0.5,
+    marginBottom: 8,
+    letterSpacing: -1,
   },
-  appTagline: { fontSize: 14, color: "rgba(255,255,255,0.75)", marginTop: 6 },
-  card: {
-    flex: 1,
+
+  appSub: {
+    fontSize: 14,
+    color: "#B7B9D3",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+
+  badgeRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 20,
+  },
+
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+  },
+
+  badgeText: {
+    color: "#D6D6F5",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  // FORM CARD
+
+  formCard: {
+    flex: 0.6,
     backgroundColor: "#fff",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 28,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 28,
     paddingTop: 32,
   },
-  cardTitle: {
+
+  formTitle: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#2D2B55",
-    marginBottom: 20,
+    color: "#1F1D3A",
+    marginBottom: 24,
   },
-  errorBanner: {
-    backgroundColor: "#FFEBEE",
-    borderRadius: 10,
+
+  // ERROR
+
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF2F2",
+    borderRadius: 12,
     padding: 12,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: "#E53935",
+    marginBottom: 18,
+    borderLeftWidth: 3,
+    borderLeftColor: "#EF4444",
   },
-  errorText: { color: "#C62828", fontSize: 14 },
+
+  errorText: {
+    color: "#DC2626",
+    fontSize: 13,
+    flex: 1,
+  },
+
+  // LABEL
+
   label: {
     fontSize: 13,
-    fontWeight: "700",
-    color: "#555",
+    fontWeight: "600",
+    color: "#6B7280",
     marginBottom: 8,
-    marginTop: 4,
   },
+
+  // INPUT EMAIL
+
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F5F4FF",
-    borderRadius: 14,
+    backgroundColor: "#F9F9FF",
     borderWidth: 1.5,
     borderColor: "#E8E6FF",
+    borderRadius: 14,
     marginBottom: 16,
+  },
+
+  inputWithIcon: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 15,
+    fontSize: 15,
+    color: "#1F1D3A",
+  },
+
+  // PASSWORD
+
+  passwordWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9F9FF",
+    borderWidth: 1.5,
+    borderColor: "#E8E6FF",
+    borderRadius: 14,
+    marginBottom: 22,
+  },
+
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 15,
+    fontSize: 15,
+    color: "#1F1D3A",
+  },
+
+  eyeBtn: {
     paddingHorizontal: 14,
   },
-  inputIcon: { fontSize: 16, marginRight: 10 },
-  input: { flex: 1, paddingVertical: 14, fontSize: 15, color: "#333" },
-  eyeBtn: { padding: 4 },
-  eyeIcon: { fontSize: 16 },
+
+  // LOGIN BUTTON
+
   loginBtn: {
-    backgroundColor: "#6C63FF",
-    borderRadius: 14,
-    padding: 17,
+    backgroundColor: "#5B52E8",
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: "center",
-    marginTop: 6,
-    shadowColor: "#6C63FF",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
+
+    shadowColor: "#5B52E8",
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.2,
     shadowRadius: 12,
-    elevation: 6,
+    elevation: 4,
+
+    marginBottom: 26,
   },
-  loginBtnDisabled: { backgroundColor: "#C5C2F0", shadowOpacity: 0 },
+
+  loginBtnDisabled: {
+    backgroundColor: "#C5C2F0",
+  },
+
   loginBtnText: {
     color: "#fff",
-    fontSize: 17,
-    fontWeight: "800",
-    letterSpacing: 0.3,
+    fontSize: 16,
+    fontWeight: "700",
   },
-  demoSection: { marginTop: 28 },
-  demoDivider: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: "#EEE" },
-  dividerText: {
-    fontSize: 12,
-    color: "#BBB",
-    fontWeight: "600",
-    marginHorizontal: 10,
+
+  // DIVIDER
+
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 18,
   },
-  demoCards: { flexDirection: "row", gap: 12 },
-  demoCard: {
+
+  dividerLine: {
     flex: 1,
-    backgroundColor: "#F8F8FF",
+    height: 1,
+    backgroundColor: "#ECECEC",
+  },
+
+  dividerText: {
+    fontSize: 11,
+    color: "#A1A1AA",
+    marginHorizontal: 10,
+    fontWeight: "500",
+  },
+
+  // DEMO ACCOUNTS
+
+  demoRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  demoBtn: {
+    flex: 1,
+    backgroundColor: "#F9F9FF",
     borderRadius: 14,
     padding: 14,
-    alignItems: "center",
     borderWidth: 1.5,
     borderColor: "#E8E6FF",
+
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
-  demoCardIcon: { fontSize: 24, marginBottom: 6 },
-  demoCardRole: {
+
+  demoIconAdmin: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "#1F1D3A",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  demoIconStudent: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "#5B52E8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  demoBtnRole: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#6C63FF",
-    marginBottom: 2,
+    color: "#1F1D3A",
   },
-  demoCardEmail: { fontSize: 10, color: "#999", textAlign: "center" },
+
+  demoBtnEmail: {
+    fontSize: 10,
+    color: "#9CA3AF",
+    marginTop: 2,
+  },
 });

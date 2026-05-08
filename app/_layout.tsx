@@ -1,13 +1,11 @@
-import "react-native-get-random-values";
-import { v4 as uuidv4 } from "uuid";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
+import "react-native-get-random-values";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 
 import { ActivityIndicator, View } from "react-native";
 import { initDatabase } from "../database/init";
 
-// Initialisation de la base de données au démarrage
 initDatabase();
 
 function RootLayoutNav() {
@@ -18,9 +16,11 @@ function RootLayoutNav() {
   useEffect(() => {
     if (isLoading) return;
     const inAuth = segments[0] === "(auth)";
-    if (!user && !inAuth) {
-      router.replace("/(auth)/login");
-    } else if (user && inAuth) {
+    const inWelcome = segments[0] === "welcome";
+
+    if (!user && !inAuth && !inWelcome) {
+      router.replace("/welcome");
+    } else if (user && (inAuth || inWelcome)) {
       if (user.role === "admin") {
         router.replace("/(admin)");
       } else {
@@ -31,14 +31,22 @@ function RootLayoutNav() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#6C63FF" />
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#5B52E8",
+        }}
+      >
+        <ActivityIndicator size="large" color="#fff" />
       </View>
     );
   }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="welcome" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(admin)" />
       <Stack.Screen name="(student)" />

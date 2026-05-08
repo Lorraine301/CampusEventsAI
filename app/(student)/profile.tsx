@@ -1,63 +1,109 @@
-import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from "expo-router";
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, Alert
-} from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
-import { profileDb } from '../../database/profile';
-import { StudentProfile } from '../../types';
+  Check,
+  Footprints,
+  LogOut,
+  Plus,
+  Save,
+  User,
+} from "lucide-react-native";
+import React, { useCallback, useState } from "react";
+import {
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useAuth } from "../../context/AuthContext";
+import { favoritesDb } from "../../database/favorites";
+import { profileDb } from "../../database/profile";
+import { registrationsDb } from "../../database/registrations";
 
-const FILIERES = ['Informatique', 'Mathématiques', 'Physique', 'Économie', 'Droit', 'Médecine', 'Autre'];
-const ANNEES = ['1', '2', '3', '4', '5'] as const;
-const INTEREST_SUGGESTIONS = [
-  'IA', 'Data Science', 'Web', 'Mobile', 'Cybersécurité',
-  'Entrepreneuriat', 'Design', 'Recherche', 'Stage', 'Réseaux',
-  'Blockchain', 'Cloud', 'DevOps', 'Marketing', 'Finance',
+const { width } = Dimensions.get("window");
+
+const FILIERES = [
+  "Informatique",
+  "Mathématiques",
+  "Physique",
+  "Économie",
+  "Droit",
+  "Médecine",
+  "Autre",
 ];
+const ANNEES = ["1", "2", "3", "4", "5"] as const;
+const INTEREST_SUGGESTIONS = [
+  "IA",
+  "Data Science",
+  "Web",
+  "Mobile",
+  "Cybersécurité",
+  "Entrepreneuriat",
+  "Design",
+  "Recherche",
+  "Stage",
+  "Réseaux",
+  "Blockchain",
+  "Cloud",
+  "DevOps",
+  "Marketing",
+  "Finance",
+];
+const AVATAR_COLORS = ["#5B52E8", "#E8527A", "#0DB8A0", "#F59E0B", "#8B5CF6"];
 
 export default function Profile() {
   const { user, logout } = useAuth();
-  const [displayName, setDisplayName] = useState('');
-  const [filiere, setFiliere] = useState('Informatique');
-  const [annee, setAnnee] = useState<'1'|'2'|'3'|'4'|'5'>('1');
+  const [displayName, setDisplayName] = useState("");
+  const [filiere, setFiliere] = useState("Informatique");
+  const [annee, setAnnee] = useState<"1" | "2" | "3" | "4" | "5">("1");
   const [interests, setInterests] = useState<string[]>([]);
-  const [customInterest, setCustomInterest] = useState('');
+  const [customInterest, setCustomInterest] = useState("");
   const [saved, setSaved] = useState(false);
+  const [statsData, setStatsData] = useState({
+    registrations: 0,
+    favorites: 0,
+  });
 
-  useFocusEffect(useCallback(() => {
-    if (!user) return;
-    const profile = profileDb.get(user.email);
-    if (profile) {
-      setDisplayName(profile.displayName);
-      setFiliere(profile.filiere);
-      setAnnee(profile.annee);
-      setInterests(profile.interests);
-    }
-  }, [user]));
+  const avatarColor =
+    AVATAR_COLORS[(user?.email.charCodeAt(0) ?? 0) % AVATAR_COLORS.length];
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      const profile = profileDb.get(user.email);
+      if (profile) {
+        setDisplayName(profile.displayName);
+        setFiliere(profile.filiere);
+        setAnnee(profile.annee);
+        setInterests(profile.interests);
+      }
+      setStatsData({
+        registrations: registrationsDb.getRegisteredEventIds(user.email).length,
+        favorites: favoritesDb.getFavoriteEventIds(user.email).length,
+      });
+    }, [user]),
+  );
 
   const toggleInterest = (interest: string) => {
-    setInterests(prev =>
+    setInterests((prev) =>
       prev.includes(interest)
-        ? prev.filter(i => i !== interest)
-        : [...prev, interest]
+        ? prev.filter((i) => i !== interest)
+        : [...prev, interest],
     );
   };
 
   const addCustomInterest = () => {
     const trimmed = customInterest.trim();
     if (trimmed && !interests.includes(trimmed)) {
-      setInterests(prev => [...prev, trimmed]);
-      setCustomInterest('');
+      setInterests((prev) => [...prev, trimmed]);
+      setCustomInterest("");
     }
   };
 
   const handleSave = () => {
-    if (!user) return;
-    if (!displayName.trim()) {
-      Alert.alert('Erreur', 'Le prénom/nom est obligatoire.');
-      return;
-    }
+    if (!user || !displayName.trim()) return;
     profileDb.upsert({
       userId: user.email,
       displayName: displayName.trim(),
@@ -67,129 +113,200 @@ export default function Profile() {
       updatedAt: new Date().toISOString(),
     });
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => setSaved(false), 2500);
   };
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      {/* Header */}
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.header}>
-        <View style={styles.avatarCircle}>
+        <View style={[styles.avatarCircle, { backgroundColor: avatarColor }]}>
           <Text style={styles.avatarText}>
-            {displayName ? displayName[0].toUpperCase() : '👤'}
+            {displayName
+              ? displayName[0].toUpperCase()
+              : (user?.email[0].toUpperCase() ?? "?")}
           </Text>
         </View>
+        <Text style={styles.headerName}>{displayName || "Ton profil"}</Text>
         <Text style={styles.headerEmail}>{user?.email}</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{statsData.registrations}</Text>
+            <Text style={styles.statLabel}>Inscriptions</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{statsData.favorites}</Text>
+            <Text style={styles.statLabel}>Favoris</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{annee}</Text>
+            <Text style={styles.statLabel}>Année</Text>
+          </View>
+        </View>
       </View>
 
-      {/* Nom */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Informations personnelles</Text>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionIconWrap}>
+            <User size={16} color="#5B52E8" />
+          </View>
+          <Text style={styles.sectionTitle}>Informations personnelles</Text>
+        </View>
+
         <Text style={styles.label}>Prénom & Nom</Text>
         <TextInput
           style={styles.input}
           value={displayName}
           onChangeText={setDisplayName}
           placeholder="Ex: Fatima Zahra"
-          placeholderTextColor="#bbb"
+          placeholderTextColor="#C4C4E0"
         />
 
-        {/* Filière */}
         <Text style={styles.label}>Filière</Text>
         <View style={styles.chipRow}>
-          {FILIERES.map(f => (
+          {FILIERES.map((f) => (
             <TouchableOpacity
               key={f}
               style={[styles.chip, filiere === f && styles.chipActive]}
               onPress={() => setFiliere(f)}
             >
-              <Text style={[styles.chipText, filiere === f && styles.chipTextActive]}>{f}</Text>
+              <Text
+                style={[
+                  styles.chipText,
+                  filiere === f && styles.chipTextActive,
+                ]}
+              >
+                {f}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Année */}
         <Text style={styles.label}>Année études</Text>
         <View style={styles.anneeRow}>
-          {ANNEES.map(a => (
+          {ANNEES.map((a) => (
             <TouchableOpacity
               key={a}
               style={[styles.anneeChip, annee === a && styles.anneeChipActive]}
               onPress={() => setAnnee(a)}
             >
-              <Text style={[styles.anneeText, annee === a && styles.anneeTextActive]}>
-                {a}ère{a === '1' ? '' : ''}
+              <Text
+                style={[
+                  styles.anneeText,
+                  annee === a && styles.anneeTextActive,
+                ]}
+              >
+                {a}
+                {a === "1" ? "ère" : "ème"}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
-      {/* Centres d'intérêt */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Centres intérêt</Text>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionIconWrap}>
+            <Footprints size={16} color="#5B52E8" />
+          </View>
+          <Text style={styles.sectionTitle}>Centres d&apos;intérêt</Text>
+        </View>
         <Text style={styles.sectionDesc}>
-          Sélectionne tes centres intérêt pour améliorer les recommandations IA
+          Améliore la pertinence des recommandations IA
         </Text>
+
         <View style={styles.chipRow}>
-          {INTEREST_SUGGESTIONS.map(interest => (
-            <TouchableOpacity
-              key={interest}
-              style={[styles.interestChip, interests.includes(interest) && styles.interestChipActive]}
-              onPress={() => toggleInterest(interest)}
-            >
-              <Text style={[styles.interestText, interests.includes(interest) && styles.interestTextActive]}>
-                {interests.includes(interest) ? '✓ ' : ''}{interest}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {INTEREST_SUGGESTIONS.map((interest) => {
+            const isSelected = interests.includes(interest);
+            return (
+              <TouchableOpacity
+                key={interest}
+                style={[
+                  styles.interestChip,
+                  isSelected && styles.interestChipActive,
+                ]}
+                onPress={() => toggleInterest(interest)}
+              >
+                {isSelected && (
+                  <Check size={11} color="#fff" style={{ marginRight: 4 }} />
+                )}
+                <Text
+                  style={[
+                    styles.interestText,
+                    isSelected && styles.interestTextActive,
+                  ]}
+                >
+                  {interest}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        <View style={styles.customInterestRow}>
+        <View style={styles.customRow}>
           <TextInput
             style={[styles.input, { flex: 1, marginBottom: 0 }]}
             value={customInterest}
             onChangeText={setCustomInterest}
             placeholder="Ajouter un intérêt..."
-            placeholderTextColor="#bbb"
+            placeholderTextColor="#C4C4E0"
             onSubmitEditing={addCustomInterest}
           />
           <TouchableOpacity style={styles.addBtn} onPress={addCustomInterest}>
-            <Text style={styles.addBtnText}>+</Text>
+            <Plus size={22} color="#fff" />
           </TouchableOpacity>
         </View>
 
-        {interests.length > 0 && (
-          <View style={styles.selectedInterests}>
-            <Text style={styles.selectedLabel}>Sélectionnés ({interests.length}) :</Text>
-            <View style={styles.chipRow}>
-              {interests.map(i => (
+        {interests.filter((i) => !INTEREST_SUGGESTIONS.includes(i)).length >
+          0 && (
+          <View style={[styles.chipRow, { marginTop: 10 }]}>
+            {interests
+              .filter((i) => !INTEREST_SUGGESTIONS.includes(i))
+              .map((i) => (
                 <TouchableOpacity
                   key={i}
-                  style={styles.selectedChip}
+                  style={styles.customTag}
                   onPress={() => toggleInterest(i)}
                 >
-                  <Text style={styles.selectedChipText}>{i} ✕</Text>
+                  <Text style={styles.customTagText}>{i}</Text>
+                  <Plus
+                    size={11}
+                    color="#fff"
+                    style={{ marginLeft: 4, transform: [{ rotate: "45deg" }] }}
+                  />
                 </TouchableOpacity>
               ))}
-            </View>
           </View>
         )}
       </View>
 
-      {/* Sauvegarder */}
       <TouchableOpacity
         style={[styles.saveBtn, saved && styles.saveBtnSuccess]}
         onPress={handleSave}
+        activeOpacity={0.88}
       >
+        {saved ? (
+          <Check size={18} color="#fff" style={{ marginRight: 8 }} />
+        ) : (
+          <Save size={18} color="#fff" style={{ marginRight: 8 }} />
+        )}
         <Text style={styles.saveBtnText}>
-          {saved ? '✅ Profil sauvegardé !' : '💾 Sauvegarder le profil'}
+          {saved ? "Profil sauvegardé !" : "Sauvegarder"}
         </Text>
       </TouchableOpacity>
 
-      {/* Déconnexion */}
-      <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-        <Text style={styles.logoutBtnText}>🚪 Se déconnecter</Text>
+      <TouchableOpacity
+        style={styles.logoutBtn}
+        onPress={logout}
+        activeOpacity={0.88}
+      >
+        <LogOut size={16} color="#EF4444" style={{ marginRight: 8 }} />
+        <Text style={styles.logoutBtnText}>Se déconnecter</Text>
       </TouchableOpacity>
 
       <View style={{ height: 40 }} />
@@ -198,87 +315,186 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F8FF' },
+  container: { flex: 1, backgroundColor: "#F4F3FF" },
   header: {
-    backgroundColor: '#6C63FF', padding: 32,
-    alignItems: 'center', paddingBottom: 40,
+    backgroundColor: "#5B52E8",
+    paddingTop: 20,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+    alignItems: "center",
   },
   avatarCircle: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.4)",
   },
-  avatarText: { fontSize: 36, color: '#fff', fontWeight: '700' },
-  headerEmail: { color: 'rgba(255,255,255,0.85)', fontSize: 14 },
+  avatarText: { fontSize: 38, color: "#fff", fontWeight: "800" },
+  headerName: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#fff",
+    marginBottom: 4,
+  },
+  headerEmail: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.7)",
+    marginBottom: 20,
+  },
+  statsRow: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: "100%",
+    justifyContent: "space-around",
+  },
+  statItem: { alignItems: "center" },
+  statNumber: { fontSize: 22, fontWeight: "800", color: "#fff" },
+  statLabel: { fontSize: 11, color: "rgba(255,255,255,0.75)", marginTop: 2 },
+  statDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.25)" },
   section: {
-    backgroundColor: '#fff', margin: 12, borderRadius: 20,
-    padding: 20, elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07, shadowRadius: 8,
+    backgroundColor: "#fff",
+    margin: 16,
+    marginBottom: 0,
+    borderRadius: 20,
+    padding: 20,
+    elevation: 2,
+    shadowColor: "#5B52E8",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
   },
-sectionTitle: {
-  fontSize: 16,
-  fontWeight: '800',
-  color: '#333',
-  marginTop: 4,
-  borderBottomWidth: 1,
-  borderBottomColor: '#F0EEFF',
-  paddingBottom: 10,
-  marginBottom: 14,
-},
-  sectionDesc: { fontSize: 13, color: '#888', marginBottom: 14 },
-  label: { fontSize: 13, fontWeight: '600', color: '#666', marginBottom: 8 },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  sectionIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "#EEEDFD",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: "800", color: "#1F1D3A" },
+  sectionDesc: {
+    fontSize: 13,
+    color: "#9CA3AF",
+    marginBottom: 14,
+    marginTop: -8,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#6B7280",
+    marginBottom: 8,
+    marginTop: 4,
+  },
   input: {
-    backgroundColor: '#F8F8FF', borderWidth: 1, borderColor: '#E8E8E8',
-    borderRadius: 12, padding: 14, fontSize: 15, color: '#333', marginBottom: 16,
+    backgroundColor: "#F4F3FF",
+    borderWidth: 1.5,
+    borderColor: "#E0DEFF",
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    color: "#1F1D3A",
+    marginBottom: 16,
   },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
   chip: {
-    borderWidth: 1.5, borderColor: '#DDD', borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1.5,
+    borderColor: "#E0DEFF",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: "#F4F3FF",
   },
-  chipActive: { backgroundColor: '#6C63FF', borderColor: '#6C63FF' },
-  chipText: { color: '#666', fontSize: 13 },
-  chipTextActive: { color: '#fff', fontWeight: '600' },
-  anneeRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  chipActive: { backgroundColor: "#5B52E8", borderColor: "#5B52E8" },
+  chipText: { fontSize: 13, color: "#6B7280", fontWeight: "500" },
+  chipTextActive: { color: "#fff", fontWeight: "700" },
+  anneeRow: { flexDirection: "row", gap: 8 },
   anneeChip: {
-    flex: 1, borderWidth: 1.5, borderColor: '#DDD', borderRadius: 12,
-    paddingVertical: 12, alignItems: 'center',
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: "#E0DEFF",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: "#F4F3FF",
   },
-  anneeChipActive: { backgroundColor: '#6C63FF', borderColor: '#6C63FF' },
-  anneeText: { fontSize: 14, color: '#666', fontWeight: '600' },
-  anneeTextActive: { color: '#fff' },
+  anneeChipActive: { backgroundColor: "#5B52E8", borderColor: "#5B52E8" },
+  anneeText: { fontSize: 13, color: "#6B7280", fontWeight: "600" },
+  anneeTextActive: { color: "#fff", fontWeight: "700" },
   interestChip: {
-    borderWidth: 1, borderColor: '#DDD', borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#F8F8FF',
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E0DEFF",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: "#F8F8FF",
   },
-  interestChipActive: { backgroundColor: '#F0EEFF', borderColor: '#6C63FF' },
-  interestText: { fontSize: 13, color: '#888' },
-  interestTextActive: { color: '#6C63FF', fontWeight: '600' },
-  customInterestRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 12 },
+  interestChipActive: { backgroundColor: "#5B52E8", borderColor: "#5B52E8" },
+  interestText: { fontSize: 13, color: "#6B7280" },
+  interestTextActive: { color: "#fff", fontWeight: "600" },
+  customRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
+    marginTop: 4,
+  },
   addBtn: {
-    backgroundColor: '#6C63FF', width: 48, height: 48,
-    borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: "#5B52E8",
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  addBtnText: { color: '#fff', fontSize: 24, fontWeight: '300' },
-  selectedInterests: {
-    backgroundColor: '#F8F8FF', borderRadius: 12, padding: 12,
+  customTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#5B52E8",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  selectedLabel: { fontSize: 12, color: '#999', fontWeight: '600', marginBottom: 8 },
-  selectedChip: {
-    backgroundColor: '#6C63FF', borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 6,
-  },
-  selectedChipText: { color: '#fff', fontSize: 13, fontWeight: '500' },
+  customTagText: { color: "#fff", fontSize: 13, fontWeight: "600" },
   saveBtn: {
-    backgroundColor: '#6C63FF', borderRadius: 14,
-    margin: 12, padding: 18, alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#5B52E8",
+    borderRadius: 16,
+    margin: 16,
+    padding: 18,
+    shadowColor: "#5B52E8",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  saveBtnSuccess: { backgroundColor: '#2E7D32' },
-  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  saveBtnSuccess: { backgroundColor: "#059669" },
+  saveBtnText: { color: "#fff", fontSize: 16, fontWeight: "800" },
   logoutBtn: {
-    borderWidth: 1.5, borderColor: '#E53935', borderRadius: 14,
-    marginHorizontal: 12, marginBottom: 12, padding: 16, alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FCA5A5",
+    borderRadius: 16,
+    marginHorizontal: 16,
+    padding: 16,
+    backgroundColor: "#FFF5F5",
   },
-  logoutBtnText: { color: '#E53935', fontSize: 15, fontWeight: '600' },
+  logoutBtnText: { color: "#EF4444", fontSize: 15, fontWeight: "700" },
 });

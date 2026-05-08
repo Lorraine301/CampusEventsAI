@@ -1,26 +1,27 @@
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
+import { Calendar, Heart, TicketCheck, Bot, UserCircle2 } from "lucide-react-native";
 
 export default function StudentLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#6C63FF",
-        tabBarInactiveTintColor: "#999",
+        tabBarActiveTintColor: "#5B52E8",
+        tabBarInactiveTintColor: "#B0AED4",
         tabBarStyle: {
-          paddingBottom: 6,
-          paddingTop: 4,
-          height: 62,
+          paddingBottom: 8,
+          paddingTop: 6,
+          height: 66,
           borderTopWidth: 0,
-          elevation: 12,
-          shadowColor: "#6C63FF",
-          shadowOpacity: 0.12,
-          shadowOffset: { width: 0, height: -4 },
-          shadowRadius: 16,
+          elevation: 20,
+          shadowColor: "#5B52E8",
+          shadowOpacity: 0.15,
+          shadowOffset: { width: 0, height: -6 },
+          shadowRadius: 20,
+          backgroundColor: "#fff",
         },
-        headerStyle: { backgroundColor: "#6C63FF" },
+        headerStyle: { backgroundColor: "#5B52E8" },
         headerTintColor: "#fff",
-        headerTitleStyle: { fontWeight: "700" },
+        headerTitleStyle: { fontWeight: "800", fontSize: 18 },
       }}
     >
       <Tabs.Screen
@@ -28,9 +29,7 @@ export default function StudentLayout() {
         options={{
           title: "Événements",
           tabBarLabel: "Événements",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 22, color }}>📅</Text>
-          ),
+          tabBarIcon: ({ color, size }) => <Calendar color={color} size={size} strokeWidth={2} />,
           headerShown: false,
         }}
       />
@@ -39,9 +38,8 @@ export default function StudentLayout() {
         options={{
           title: "Favoris",
           tabBarLabel: "Favoris",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 22, color }}>❤️</Text>
-          ),
+          tabBarIcon: ({ color, size }) => <Heart color={color} size={size} strokeWidth={2} />,
+          headerStyle: { backgroundColor: "#5B52E8" },
         }}
       />
       <Tabs.Screen
@@ -49,9 +47,7 @@ export default function StudentLayout() {
         options={{
           title: "Inscriptions",
           tabBarLabel: "Inscriptions",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 22, color }}>🎫</Text>
-          ),
+          tabBarIcon: ({ color, size }) => <TicketCheck color={color} size={size} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen
@@ -59,9 +55,7 @@ export default function StudentLayout() {
         options={{
           title: "Assistant IA",
           tabBarLabel: "Assistant",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 22, color }}>🤖</Text>
-          ),
+          tabBarIcon: ({ color, size }) => <Bot color={color} size={size} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen
@@ -69,9 +63,7 @@ export default function StudentLayout() {
         options={{
           title: "Mon profil",
           tabBarLabel: "Profil",
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 22, color }}>👤</Text>
-          ),
+          tabBarIcon: ({ color, size }) => <UserCircle2 color={color} size={size} strokeWidth={2} />,
         }}
       />
     </Tabs>

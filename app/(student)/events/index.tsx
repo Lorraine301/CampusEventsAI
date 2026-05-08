@@ -1,8 +1,24 @@
 import { useFocusEffect, useRouter } from "expo-router";
+import {
+  Building2,
+  Calendar,
+  CircleX,
+  Clock,
+  FileText,
+  MapPin,
+  Mic,
+  Pin,
+  Search,
+  Star,
+  Users,
+  Wrench,
+  X,
+} from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
   FlatList,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -22,15 +38,15 @@ const CATEGORIES: EventCategory[] = [
   "Other",
 ];
 
-const getCategoryColor = (category: string) => {
-  const colors: Record<string, string> = {
-    Talk: "#6C63FF",
-    Workshop: "#FF6584",
-    Club: "#43C6AC",
-    Exam: "#F7971E",
-    Other: "#888",
-  };
-  return colors[category] ?? "#888";
+const CATEGORY_CONFIG: Record<
+  string,
+  { color: string; bg: string; Icon: any }
+> = {
+  Talk: { color: "#534AB7", bg: "#EEEDFE", Icon: Mic },
+  Workshop: { color: "#993C1D", bg: "#FAECE7", Icon: Wrench },
+  Club: { color: "#0F6E56", bg: "#E1F5EE", Icon: Building2 },
+  Exam: { color: "#5F5E5A", bg: "#F1EFE8", Icon: FileText },
+  Other: { color: "#6B7280", bg: "#F3F4F6", Icon: Pin },
 };
 
 const formatDate = (iso: string) => {
@@ -50,18 +66,19 @@ export default function EventsList() {
 
   const [allEvents, setAllEvents] = useState<Event[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] =
     useState<EventCategory | null>(null);
+
   const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
+
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(() => {
-    const events = eventsDb.getAll();
-    setAllEvents(events);
+    setAllEvents(eventsDb.getAll());
     if (user) {
-      const ids = favoritesDb.getFavoriteEventIds(user.email);
-      setFavoriteIds(new Set(ids));
+      setFavoriteIds(new Set(favoritesDb.getFavoriteEventIds(user.email)));
     }
   }, [user]);
 
@@ -93,58 +110,151 @@ export default function EventsList() {
   const now = new Date();
 
   const filteredEvents = allEvents.filter((event) => {
-    const eventDate = new Date(event.startDateTime);
-    if (filter === "upcoming" && eventDate < now) return false;
-    if (filter === "past" && eventDate >= now) return false;
+    const d = new Date(event.startDateTime);
+    if (filter === "upcoming" && d < now) return false;
+    if (filter === "past" && d >= now) return false;
     if (selectedCategory && event.category !== selectedCategory) return false;
     if (search && !event.title.toLowerCase().includes(search.toLowerCase()))
       return false;
     return true;
   });
 
+  const upcomingCount = allEvents.filter(
+    (e) => new Date(e.startDateTime) >= now,
+  ).length;
+
   const renderItem = ({ item }: { item: Event }) => {
+    const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.Other;
+    const { Icon } = cfg;
     const isPast = new Date(item.startDateTime) < now;
     const isFull =
       item.capacity !== undefined && item.registeredCount >= item.capacity;
+    const isFav = favoriteIds.has(item.id);
+
+    const capacityRatio =
+      item.capacity !== undefined && item.capacity > 0
+        ? item.registeredCount / item.capacity
+        : 0;
 
     return (
       <TouchableOpacity
         style={[styles.card, isPast && styles.cardPast]}
         onPress={() => router.push(`/(student)/events/${item.id}`)}
-        activeOpacity={0.85}
+        activeOpacity={0.92}
       >
-        <View style={styles.cardHeader}>
-          <View
-            style={[
-              styles.badge,
-              { backgroundColor: getCategoryColor(item.category) },
-            ]}
-          >
-            <Text style={styles.badgeText}>{item.category}</Text>
+        {/* Top color bar */}
+        <View style={[styles.cardTopBar, { backgroundColor: cfg.color }]} />
+
+        <View style={styles.cardBody}>
+          {/* Header row */}
+          <View style={styles.cardTop}>
+            <View style={[styles.categoryPill, { backgroundColor: cfg.bg }]}>
+              <Icon size={11} color={cfg.color} style={{ marginRight: 4 }} />
+              <Text style={[styles.categoryPillText, { color: cfg.color }]}>
+                {item.category}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => toggleFavorite(item.id)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <View
+                style={[styles.favoriteBtn, isFav && styles.favoriteBtnActive]}
+              >
+                <Star
+                  size={15}
+                  color={isFav ? "#BA7517" : "#9CA3AF"}
+                  fill={isFav ? "#BA7517" : "transparent"}
+                />
+              </View>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => toggleFavorite(item.id)}>
-            <Text style={styles.heartIcon}>
-              {favoriteIds.has(item.id) ? "❤️" : "🤍"}
-            </Text>
-          </TouchableOpacity>
-        </View>
 
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <Text style={styles.cardDate}>🗓 {formatDate(item.startDateTime)}</Text>
-        <Text style={styles.cardLocation} numberOfLines={1}>
-          📍 {item.locationName}
-        </Text>
+          {/* Title */}
+          <Text style={styles.cardTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
 
-        <View style={styles.cardFooter}>
-          {item.capacity !== undefined && (
-            <Text style={[styles.capacityText, isFull && styles.capacityFull]}>
-              🎫 {item.registeredCount}/{item.capacity}{" "}
-              {isFull ? "(Complet)" : ""}
-            </Text>
-          )}
-          {isPast && <Text style={styles.pastLabel}>Terminé</Text>}
+          {/* Meta */}
+          <View style={styles.metaGrid}>
+            <View style={styles.metaItem}>
+              <Calendar size={12} color="#9CA3AF" />
+              <Text style={styles.metaText}>
+                {formatDate(item.startDateTime)}
+              </Text>
+            </View>
+            <View style={styles.metaItem}>
+              <MapPin size={12} color="#9CA3AF" />
+              <Text style={styles.metaText} numberOfLines={1}>
+                {item.locationName}
+              </Text>
+            </View>
+          </View>
+
+          {/* Divider */}
+          <View style={styles.divider} />
+
+          {/* Footer */}
+          <View style={styles.cardFooter}>
+            {/* Capacity with progress bar */}
+            {item.capacity !== undefined ? (
+              <View style={styles.capacityWrap}>
+                <Users size={12} color={isFull ? "#A32D2D" : "#9CA3AF"} />
+                <View style={styles.capacityTrack}>
+                  <View
+                    style={[
+                      styles.capacityFill,
+                      {
+                        width: `${Math.min(capacityRatio * 100, 100)}%` as any,
+                        backgroundColor: isFull ? "#E24B4A" : cfg.color,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text
+                  style={[styles.capacityText, isFull && { color: "#A32D2D" }]}
+                >
+                  {item.registeredCount}/{item.capacity}
+                </Text>
+              </View>
+            ) : (
+              <View />
+            )}
+
+            {/* Status badge */}
+            {isFull ? (
+              <View style={[styles.statusBadge, styles.statusBadgeFull]}>
+                <CircleX size={11} color="#A32D2D" style={{ marginRight: 4 }} />
+                <Text
+                  style={[styles.statusBadgeText, styles.statusBadgeTextFull]}
+                >
+                  Complet
+                </Text>
+              </View>
+            ) : isPast ? (
+              <View style={[styles.statusBadge, styles.statusBadgePast]}>
+                <Clock size={11} color="#9CA3AF" style={{ marginRight: 4 }} />
+                <Text
+                  style={[styles.statusBadgeText, styles.statusBadgeTextPast]}
+                >
+                  Terminé
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.statusBadge, styles.statusBadgeUpcoming]}>
+                <Clock size={11} color="#3B6D11" style={{ marginRight: 4 }} />
+                <Text
+                  style={[
+                    styles.statusBadgeText,
+                    styles.statusBadgeTextUpcoming,
+                  ]}
+                >
+                  À venir
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -152,202 +262,491 @@ export default function EventsList() {
 
   return (
     <View style={styles.container}>
-      {/* Barre de recherche */}
-      <View style={styles.searchBar}>
-        <Text style={styles.searchIcon}>🔍</Text>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Rechercher un événement..."
-          placeholderTextColor="#bbb"
-          value={search}
-          onChangeText={setSearch}
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch("")}>
-            <Text style={styles.clearIcon}>✕</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.headerTitle}>Explorer</Text>
+            <Text style={styles.headerSubtitle}>Événements du campus</Text>
+          </View>
+          {/* Stat pill */}
+          <View style={styles.statPill}>
+            <Text style={styles.statNumber}>{upcomingCount}</Text>
+            <Text style={styles.statLabel}>à venir</Text>
+          </View>
+        </View>
 
-      {/* Filtre période */}
-      <View style={styles.periodRow}>
-        {(["upcoming", "all", "past"] as const).map((f) => (
-          <TouchableOpacity
-            key={f}
-            style={[styles.periodChip, filter === f && styles.periodChipActive]}
-            onPress={() => setFilter(f)}
-          >
-            <Text
-              style={[
-                styles.periodChipText,
-                filter === f && styles.periodChipTextActive,
-              ]}
+        {/* Search */}
+        <View style={styles.searchBox}>
+          <Search size={16} color="#9CA3AF" style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Rechercher un événement..."
+            placeholderTextColor="#BEC3CF"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch("")}>
+              <X size={15} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Period tabs */}
+        <View style={styles.tabsRow}>
+          {(["upcoming", "all", "past"] as const).map((f) => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.tab, filter === f && styles.tabActive]}
+              onPress={() => setFilter(f)}
             >
-              {f === "upcoming" ? "À venir" : f === "all" ? "Tous" : "Passés"}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[styles.tabText, filter === f && styles.tabTextActive]}
+              >
+                {f === "upcoming" ? "À venir" : f === "all" ? "Tous" : "Passés"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
-      {/* Filtre catégorie */}
-      <View style={styles.categoryScroll}>
-        <TouchableOpacity
-          style={[
-            styles.categoryChip,
-            selectedCategory === null && styles.categoryChipActive,
-          ]}
-          onPress={() => setSelectedCategory(null)}
+      {/* Category chips */}
+      <View style={styles.chipsContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
         >
-          <Text
-            style={[
-              styles.categoryChipText,
-              selectedCategory === null && styles.categoryChipTextActive,
-            ]}
-          >
-            Toutes
-          </Text>
-        </TouchableOpacity>
-        {CATEGORIES.map((cat) => (
           <TouchableOpacity
-            key={cat}
             style={[
               styles.categoryChip,
-              selectedCategory === cat && styles.categoryChipActive,
+              selectedCategory === null && styles.categoryChipActive,
             ]}
-            onPress={() =>
-              setSelectedCategory(selectedCategory === cat ? null : cat)
-            }
+            onPress={() => setSelectedCategory(null)}
           >
             <Text
               style={[
                 styles.categoryChipText,
-                selectedCategory === cat && styles.categoryChipTextActive,
+                selectedCategory === null && styles.categoryChipTextActive,
               ]}
             >
-              {cat}
+              Tous
             </Text>
           </TouchableOpacity>
-        ))}
+
+          {CATEGORIES.map((cat) => {
+            const cfg = CATEGORY_CONFIG[cat];
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[
+                  styles.categoryChip,
+                  selectedCategory === cat && {
+                    backgroundColor: cfg.color,
+                    borderColor: cfg.color,
+                  },
+                ]}
+                onPress={() =>
+                  setSelectedCategory(selectedCategory === cat ? null : cat)
+                }
+              >
+                <cfg.Icon
+                  size={12}
+                  color={selectedCategory === cat ? "#fff" : cfg.color}
+                  style={{ marginRight: 5 }}
+                />
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    selectedCategory === cat && styles.categoryChipTextActive,
+                  ]}
+                >
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
-      {/* Résultats */}
+      {/* Result count */}
       <Text style={styles.resultCount}>
-        {filteredEvents.length} événement(s)
+        {filteredEvents.length} événement
+        {filteredEvents.length > 1 ? "s" : ""}
       </Text>
 
+      {/* List */}
       <FlatList
         data={filteredEvents}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={loadData} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={loadData}
+            tintColor="#534AB7"
+          />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🔎</Text>
-            <Text style={styles.emptyText}>Aucun événement trouvé</Text>
-            <Text style={styles.emptySubText}>
-              Essaie de changer les filtres
+            <View style={styles.emptyIconWrap}>
+              <Search size={38} color="#AFA9EC" strokeWidth={1.5} />
+            </View>
+            <Text style={styles.emptyTitle}>Aucun événement trouvé</Text>
+            <Text style={styles.emptySubtitle}>
+              Essaie de modifier les filtres{"\n"}ou la recherche
             </Text>
           </View>
         }
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F8FF", padding: 12 },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-  },
-  searchIcon: { fontSize: 16, marginRight: 8 },
-  searchInput: { flex: 1, paddingVertical: 12, fontSize: 15, color: "#333" },
-  clearIcon: { fontSize: 16, color: "#999", padding: 4 },
-  periodRow: { flexDirection: "row", gap: 8, marginBottom: 10 },
-  periodChip: {
+  container: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: "#6C63FF",
+    backgroundColor: "#F4F3FF",
+  },
+
+  // ─── Header ───────────────────────────────────────────────────────────────
+  header: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0EFF8",
+  },
+
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 14,
+  },
+
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "600",
+    color: "#1F1D3A",
+  },
+
+  headerSubtitle: {
+    fontSize: 13,
+    color: "#9CA3AF",
+    marginTop: 2,
+  },
+
+  // Stat pill (top-right)
+  statPill: {
+    backgroundColor: "#EEEDFE",
     borderRadius: 20,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     alignItems: "center",
   },
-  periodChipActive: { backgroundColor: "#6C63FF" },
-  periodChipText: { color: "#6C63FF", fontWeight: "600", fontSize: 13 },
-  periodChipTextActive: { color: "#fff" },
-  categoryScroll: {
+
+  statNumber: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#534AB7",
+    lineHeight: 24,
+  },
+
+  statLabel: {
+    fontSize: 10,
+    color: "#7F77DD",
+    marginTop: 1,
+  },
+
+  // Search
+  searchBox: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginBottom: 10,
-  },
-  categoryChip: {
+    alignItems: "center",
+    backgroundColor: "#F4F3FF",
+    borderRadius: 12,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: "#DDD",
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderColor: "#E8E6FF",
+    marginBottom: 14,
   },
-  categoryChipActive: { backgroundColor: "#6C63FF", borderColor: "#6C63FF" },
-  categoryChipText: { color: "#666", fontSize: 13 },
-  categoryChipTextActive: { color: "#fff", fontWeight: "600" },
-  resultCount: { fontSize: 12, color: "#999", marginBottom: 8, marginLeft: 2 },
+
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: "#1F1D3A",
+  },
+
+  // Period tabs (inside header, above border)
+  tabsRow: {
+    flexDirection: "row",
+  },
+
+  tab: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+
+  tabActive: {
+    borderBottomColor: "#534AB7",
+  },
+
+  tabText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#9CA3AF",
+  },
+
+  tabTextActive: {
+    color: "#534AB7",
+  },
+
+  // ─── Category chips ────────────────────────────────────────────────────────
+  chipsContainer: {
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0EFF8",
+  },
+
+  categoryChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "#E8E6FF",
+  },
+
+  categoryChipActive: {
+    backgroundColor: "#534AB7",
+    borderColor: "#534AB7",
+  },
+
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+
+  categoryChipTextActive: {
+    color: "#fff",
+  },
+
+  // ─── Result count ──────────────────────────────────────────────────────────
+  resultCount: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    marginLeft: 16,
+    marginTop: 10,
+    marginBottom: 4,
+    fontWeight: "600",
+  },
+
+  // ─── Cards ─────────────────────────────────────────────────────────────────
   card: {
     backgroundColor: "#fff",
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 10,
-    elevation: 2,
-    shadowColor: "#000",
+    marginBottom: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#EBEBF5",
+    // subtle shadow
+    shadowColor: "#534AB7",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
+    shadowOpacity: 0.05,
     shadowRadius: 8,
+    elevation: 2,
   },
-  cardPast: { opacity: 0.6 },
-  cardHeader: {
+
+  cardPast: {
+    opacity: 0.65,
+  },
+
+  // Top color bar replaces left stripe
+  cardTopBar: {
+    height: 5,
+    width: "100%",
+  },
+
+  cardBody: {
+    padding: 14,
+  },
+
+  cardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  badge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  badgeText: { color: "#fff", fontSize: 12, fontWeight: "600" },
-  heartIcon: { fontSize: 20 },
-  cardTitle: {
-    fontSize: 16,
+
+  categoryPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+
+  categoryPillText: {
+    fontSize: 11,
     fontWeight: "700",
-    color: "#333",
-    marginBottom: 6,
   },
-  cardDate: { fontSize: 13, color: "#666", marginBottom: 4 },
-  cardLocation: { fontSize: 13, color: "#666", marginBottom: 6 },
+
+  favoriteBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#F4F3FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  favoriteBtnActive: {
+    backgroundColor: "#FAEEDA",
+  },
+
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1F1D3A",
+    marginBottom: 10,
+    lineHeight: 21,
+  },
+
+  // Meta
+  metaGrid: {
+    gap: 6,
+    marginBottom: 12,
+  },
+
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  metaText: {
+    fontSize: 12,
+    color: "#6B7280",
+    flex: 1,
+  },
+
+  // Divider
+  divider: {
+    height: 1,
+    backgroundColor: "#F0EFF8",
+    marginBottom: 12,
+  },
+
+  // Footer
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 4,
   },
-  capacityText: { fontSize: 12, color: "#888" },
-  capacityFull: { color: "#E53935", fontWeight: "600" },
-  pastLabel: {
+
+  // Capacity with progress bar
+  capacityWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  capacityTrack: {
+    width: 56,
+    height: 4,
+    borderRadius: 4,
+    backgroundColor: "#F0EFF8",
+    overflow: "hidden",
+  },
+
+  capacityFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+
+  capacityText: {
     fontSize: 11,
-    color: "#fff",
-    backgroundColor: "#888",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    color: "#6B7280",
+    fontWeight: "600",
   },
-  empty: { alignItems: "center", marginTop: 80 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyText: { fontSize: 18, fontWeight: "600", color: "#555" },
-  emptySubText: { fontSize: 14, color: "#999", marginTop: 4 },
+
+  // Status badge
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+
+  statusBadgeUpcoming: {
+    backgroundColor: "#EAF3DE",
+  },
+
+  statusBadgePast: {
+    backgroundColor: "#F1EFE8",
+  },
+
+  statusBadgeFull: {
+    backgroundColor: "#FCEBEB",
+  },
+
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  statusBadgeTextUpcoming: {
+    color: "#3B6D11",
+  },
+
+  statusBadgeTextPast: {
+    color: "#9CA3AF",
+  },
+
+  statusBadgeTextFull: {
+    color: "#A32D2D",
+  },
+
+  // ─── Empty state ───────────────────────────────────────────────────────────
+  empty: {
+    alignItems: "center",
+    marginTop: 90,
+  },
+
+  emptyIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "#EEEDFE",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+  },
+
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+
+  emptySubtitle: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    textAlign: "center",
+    lineHeight: 22,
+  },
 });

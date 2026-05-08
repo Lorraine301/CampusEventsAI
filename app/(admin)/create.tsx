@@ -1,6 +1,8 @@
 import { useRouter } from "expo-router";
+import { CheckCircle } from "lucide-react-native";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -9,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
 import { eventsDb } from "../../database/events";
 import { EventCategory } from "../../types";
 
@@ -290,9 +293,14 @@ export default function CreateEvent() {
         onPress={handleCreate}
         disabled={loading}
       >
-        <Text style={styles.submitButtonText}>
-          {loading ? "Création..." : "✅ Créer l'événement"}
-        </Text>
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <CheckCircle size={18} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.submitButtonText}>Créer l&apos;événement</Text>
+          </>
+        )}
       </TouchableOpacity>
 
       <View style={{ height: 40 }} />

@@ -1,4 +1,15 @@
+// app/(student)/registrations.tsx
+
 import { useFocusEffect, useRouter } from "expo-router";
+import {
+  Calendar,
+  CalendarCheck,
+  Clock,
+  Clock3,
+  MapPin,
+  Ticket,
+  XCircle
+} from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
   Alert,
@@ -14,20 +25,18 @@ import { eventsDb } from "../../database/events";
 import { registrationsDb } from "../../database/registrations";
 import { Event } from "../../types";
 
-const getCategoryColor = (category: string) => {
-  const colors: Record<string, string> = {
-    Talk: "#6C63FF",
-    Workshop: "#FF6584",
-    Club: "#43C6AC",
-    Exam: "#F7971E",
-    Other: "#888",
-  };
-  return colors[category] ?? "#888";
+const CATEGORY_CONFIG: Record<string, { color: string; bg: string }> = {
+  Talk: { color: "#534AB7", bg: "#EEEDFE" },
+  Workshop: { color: "#993C1D", bg: "#FAECE7" },
+  Club: { color: "#0F6E56", bg: "#E1F5EE" },
+  Exam: { color: "#5F5E5A", bg: "#F1EFE8" },
+  Other: { color: "#6B7280", bg: "#F3F4F6" },
 };
 
 export default function Registrations() {
   const { user } = useAuth();
   const router = useRouter();
+
   const [registeredEvents, setRegisteredEvents] = useState<Event[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -53,201 +62,441 @@ export default function Registrations() {
 
   const handleCancel = (event: Event) => {
     if (!user) return;
-    Alert.alert(
-      "Annuler l'inscription",
-      `Annuler ton inscription à "${event.title}" ?`,
-      [
-        { text: "Non", style: "cancel" },
-        {
-          text: "Oui, annuler",
-          style: "destructive",
-          onPress: () => {
-            registrationsDb.cancel(event.id, user.email);
-            eventsDb.decrementRegistered(event.id);
-            loadData();
-          },
+    Alert.alert("Annuler", `Annuler l'inscription à "${event.title}" ?`, [
+      { text: "Non", style: "cancel" },
+      {
+        text: "Oui, annuler",
+        style: "destructive",
+        onPress: () => {
+          registrationsDb.cancel(event.id, user.email);
+          eventsDb.decrementRegistered(event.id);
+          loadData();
         },
-      ],
-    );
+      },
+    ]);
   };
 
   const now = new Date();
-
-  const renderItem = ({ item }: { item: Event }) => {
-    const isPast = new Date(item.startDateTime) < now;
-    return (
-      <TouchableOpacity
-        style={[styles.card, isPast && styles.cardPast]}
-        onPress={() => router.push(`/(student)/events/${item.id}`)}
-        activeOpacity={0.85}
-      >
-        <View style={styles.cardHeader}>
-          <View
-            style={[
-              styles.badge,
-              { backgroundColor: getCategoryColor(item.category) },
-            ]}
-          >
-            <Text style={styles.badgeText}>{item.category}</Text>
-          </View>
-          {isPast ? (
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>Terminé</Text>
-            </View>
-          ) : (
-            <View style={[styles.statusBadge, styles.statusConfirmed]}>
-              <Text
-                style={[styles.statusBadgeText, styles.statusConfirmedText]}
-              >
-                ✅ Inscrit
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <Text style={styles.cardDate}>
-          🗓{" "}
-          {new Date(item.startDateTime).toLocaleDateString("fr-FR", {
-            weekday: "short",
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </Text>
-        <Text style={styles.cardLocation} numberOfLines={1}>
-          📍 {item.locationName}
-        </Text>
-
-        {!isPast && (
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={() => handleCancel(item)}
-          >
-            <Text style={styles.cancelBtnText}>Annuler inscription</Text>
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
-    );
-  };
 
   const upcoming = registeredEvents.filter(
     (e) => new Date(e.startDateTime) >= now,
   );
   const past = registeredEvents.filter((e) => new Date(e.startDateTime) < now);
 
+  const renderItem = ({ item }: { item: Event }) => {
+    const isPast = new Date(item.startDateTime) < now;
+    const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.Other;
+
+    return (
+      <TouchableOpacity
+        style={[styles.card, isPast && styles.cardPast]}
+        onPress={() => router.push(`/(student)/events/${item.id}`)}
+        activeOpacity={0.92}
+      >
+        {/* Top color bar */}
+        <View style={[styles.cardTopBar, { backgroundColor: cfg.color }]} />
+
+        <View style={styles.cardBody}>
+          {/* Header row */}
+          <View style={styles.cardTop}>
+            <View style={[styles.categoryPill, { backgroundColor: cfg.bg }]}>
+              <Text style={[styles.categoryPillText, { color: cfg.color }]}>
+                {item.category}
+              </Text>
+            </View>
+
+            {isPast ? (
+              <View style={[styles.statusBadge, styles.statusBadgePast]}>
+                <Clock size={11} color="#9CA3AF" style={{ marginRight: 4 }} />
+                <Text
+                  style={[styles.statusBadgeText, styles.statusBadgeTextPast]}
+                >
+                  Terminé
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.statusBadge, styles.statusBadgeActive]}>
+                <CalendarCheck
+                  size={11}
+                  color="#3B6D11"
+                  style={{ marginRight: 4 }}
+                />
+                <Text
+                  style={[styles.statusBadgeText, styles.statusBadgeTextActive]}
+                >
+                  Confirmé
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Title */}
+          <Text style={styles.cardTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+
+          {/* Meta */}
+          <View style={styles.metaGrid}>
+            <View style={styles.metaRow}>
+              <Calendar size={12} color="#9CA3AF" />
+              <Text style={styles.cardMeta}>
+                {new Date(item.startDateTime).toLocaleDateString("fr-FR", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Clock3 size={12} color="#9CA3AF" />
+              <Text style={styles.cardMeta}>
+                {new Date(item.startDateTime).toLocaleTimeString("fr-FR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </Text>
+            </View>
+            <View style={styles.metaRow}>
+              <MapPin size={12} color="#9CA3AF" />
+              <Text style={styles.cardMeta} numberOfLines={1}>
+                {item.locationName}
+              </Text>
+            </View>
+          </View>
+
+          {/* Divider */}
+          <View style={styles.divider} />
+
+          {/* Cancel button */}
+          {!isPast && (
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => handleCancel(item)}
+            >
+              <XCircle size={14} color="#A32D2D" style={{ marginRight: 6 }} />
+              <Text style={styles.cancelBtnText}>
+                Annuler l&apos;inscription
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      {registeredEvents.length > 0 && (
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>{upcoming.length}</Text>
-            <Text style={styles.statLabel}>À venir</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.headerTitle}>Mes inscriptions</Text>
+            <Text style={styles.headerSubtitle}>Événements confirmés</Text>
           </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>{past.length}</Text>
-            <Text style={styles.statLabel}>Passés</Text>
+          <View style={styles.statPill}>
+            <Text style={styles.statNumber}>{upcoming.length}</Text>
+            <Text style={styles.statLabel}>à venir</Text>
           </View>
         </View>
-      )}
+
+        {registeredEvents.length > 0 && (
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <CalendarCheck
+                size={15}
+                color="#534AB7"
+                style={{ marginBottom: 6 }}
+              />
+              <Text style={styles.statCardNumber}>{upcoming.length}</Text>
+              <Text style={styles.statCardLabel}>À venir</Text>
+            </View>
+            <View style={[styles.statCard, styles.statCardMuted]}>
+              <Clock3 size={15} color="#9CA3AF" style={{ marginBottom: 6 }} />
+              <Text style={[styles.statCardNumber, { color: "#6B7280" }]}>
+                {past.length}
+              </Text>
+              <Text style={styles.statCardLabel}>Passés</Text>
+            </View>
+            <View style={[styles.statCard, styles.statCardTotal]}>
+              <Ticket size={15} color="#0F6E56" style={{ marginBottom: 6 }} />
+              <Text style={[styles.statCardNumber, { color: "#0F6E56" }]}>
+                {registeredEvents.length}
+              </Text>
+              <Text style={styles.statCardLabel}>Total</Text>
+            </View>
+          </View>
+        )}
+      </View>
 
       <FlatList
         data={registeredEvents}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={loadData} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={loadData}
+            tintColor="#534AB7"
+          />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🎫</Text>
-            <Text style={styles.emptyText}>Aucune inscription</Text>
-            <Text style={styles.emptySubText}>
-              Inscris-toi à des événements depuis le catalogue
+            <View style={styles.emptyIconWrap}>
+              <Ticket size={36} color="#AFA9EC" strokeWidth={1.5} />
+            </View>
+            <Text style={styles.emptyTitle}>Aucune inscription</Text>
+            <Text style={styles.emptySub}>
+              Inscrivez-vous à des événements depuis le catalogue
             </Text>
           </View>
         }
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F8FF", padding: 12 },
-  statsRow: { flexDirection: "row", gap: 12, marginBottom: 16 },
-  statBox: {
+  container: {
     flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 16,
-    alignItems: "center",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
+    backgroundColor: "#F4F3FF",
   },
-  statNumber: { fontSize: 28, fontWeight: "800", color: "#6C63FF" },
-  statLabel: { fontSize: 13, color: "#888", marginTop: 2 },
+
+  // ─── Header ───────────────────────────────────────────────────────────────
+  header: {
+    backgroundColor: "#fff",
+    paddingTop: 16,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0EFF8",
+  },
+
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "600",
+    color: "#1F1D3A",
+  },
+
+  headerSubtitle: {
+    fontSize: 13,
+    color: "#9CA3AF",
+    marginTop: 2,
+  },
+
+  statPill: {
+    backgroundColor: "#EEEDFE",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+
+  statNumber: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#534AB7",
+    lineHeight: 24,
+  },
+
+  statLabel: {
+    fontSize: 10,
+    color: "#7F77DD",
+    marginTop: 1,
+  },
+
+  statsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  statCard: {
+    flex: 1,
+    backgroundColor: "#EEEDFE",
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
+  },
+
+  statCardMuted: {
+    backgroundColor: "#F1EFE8",
+  },
+
+  statCardTotal: {
+    backgroundColor: "#E1F5EE",
+  },
+
+  statCardNumber: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#534AB7",
+    lineHeight: 24,
+  },
+
+  statCardLabel: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    marginTop: 2,
+  },
+
+  // ─── Cards ─────────────────────────────────────────────────────────────────
   card: {
     backgroundColor: "#fff",
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 10,
-    elevation: 2,
-    shadowColor: "#000",
+    marginBottom: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#EBEBF5",
+    shadowColor: "#534AB7",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
+    shadowOpacity: 0.05,
     shadowRadius: 8,
+    elevation: 2,
   },
-  cardPast: { opacity: 0.65 },
-  cardHeader: {
+
+  cardPast: {
+    opacity: 0.65,
+  },
+
+  cardTopBar: {
+    height: 5,
+    width: "100%",
+  },
+
+  cardBody: {
+    padding: 14,
+  },
+
+  cardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  badge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  badgeText: { color: "#fff", fontSize: 12, fontWeight: "600" },
-  statusBadge: {
-    backgroundColor: "#F5F5F5",
-    borderRadius: 8,
+
+  categoryPill: {
+    borderRadius: 20,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
-  statusBadgeText: { fontSize: 12, color: "#888" },
-  statusConfirmed: { backgroundColor: "#E8F5E9" },
-  statusConfirmedText: { color: "#2E7D32", fontWeight: "600" },
-  cardTitle: {
-    fontSize: 16,
+
+  categoryPillText: {
+    fontSize: 11,
     fontWeight: "700",
-    color: "#333",
-    marginBottom: 6,
   },
-  cardDate: { fontSize: 13, color: "#666", marginBottom: 4 },
-  cardLocation: { fontSize: 13, color: "#666", marginBottom: 8 },
+
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+
+  statusBadgeActive: {
+    backgroundColor: "#EAF3DE",
+  },
+
+  statusBadgePast: {
+    backgroundColor: "#F1EFE8",
+  },
+
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+
+  statusBadgeTextActive: {
+    color: "#3B6D11",
+  },
+
+  statusBadgeTextPast: {
+    color: "#9CA3AF",
+  },
+
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1F1D3A",
+    marginBottom: 10,
+    lineHeight: 21,
+  },
+
+  metaGrid: {
+    gap: 6,
+    marginBottom: 12,
+  },
+
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  cardMeta: {
+    fontSize: 12,
+    color: "#6B7280",
+    flex: 1,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: "#F0EFF8",
+    marginBottom: 12,
+  },
+
   cancelBtn: {
-    borderWidth: 1.5,
-    borderColor: "#E53935",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FCEBEB",
     borderRadius: 10,
     paddingVertical: 10,
-    alignItems: "center",
-    marginTop: 8,
+    paddingHorizontal: 14,
+    alignSelf: "flex-start",
   },
-  cancelBtnText: { color: "#E53935", fontWeight: "600", fontSize: 14 },
-  empty: { alignItems: "center", marginTop: 100 },
-  emptyIcon: { fontSize: 56, marginBottom: 16 },
-  emptyText: { fontSize: 18, fontWeight: "600", color: "#555" },
-  emptySubText: {
-    fontSize: 14,
-    color: "#999",
-    marginTop: 8,
+
+  cancelBtnText: {
+    color: "#A32D2D",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  // ─── Empty ─────────────────────────────────────────────────────────────────
+  empty: {
+    alignItems: "center",
+    marginTop: 100,
+  },
+
+  emptyIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "#EEEDFE",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+  },
+
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 6,
+  },
+
+  emptySub: {
+    fontSize: 13,
+    color: "#9CA3AF",
     textAlign: "center",
     paddingHorizontal: 32,
+    lineHeight: 20,
   },
 });
