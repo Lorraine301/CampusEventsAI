@@ -1,0 +1,77 @@
+[
+  {
+    "id": "c7b7a30c-7f6d-4986-9f40-5deac1b65cbb",
+    "title": "Workshop React Native",
+    "description": "C'est pour apprendre la programmation mobile de façon plus claire et avantageuse.",
+    "category": "Workshop",
+    "startDateTime": "2026-05-13T14:30:00",
+    "endDateTime": "2026-05-14T16:00:00",
+    "locationName": "Amphi 6",
+    "locationAddress": "FST Tanger",
+    "organizerName": "Club ITGeeks",
+    "capacity": 60,
+    "registeredCount": 0,
+    "tags": [
+      "IA",
+      "machine learning"
+    ],
+    "createdAt": "2026-05-02T01:17:55.838Z"
+  },
+  {
+    "id": "2436423c-b1ab-4312-8bcf-5424e41646f3",
+    "title": "Atelier d'art",
+    "description": "Cet événement mettra en valeur le talent de chacun.",
+    "category": "Club",
+    "startDateTime": "2026-06-20T14:00:00",
+    "endDateTime": "2026-06-20T18:00:00",
+    "locationName": "Salle B18",
+    "locationAddress": "FST Tanger",
+    "organizerName": "Club Share your talent",
+    "capacity": 30,
+    "registeredCount": 1,
+    "tags": [
+      "talent",
+      "art",
+      "créativité",
+      "détente"
+    ],
+    "createdAt": "2026-05-05T21:37:07.035Z"
+  },
+  {
+    "id": "c65c5b74-b2aa-4cc9-aae8-e4ffc93adc49",
+    "title": "Développement personnel",
+    "description": "Cet événement sera une opportunité pour mieux connaître sa personnalité et découvrir ce qu'on pourra bâtir.",
+    "category": "Club",
+    "startDateTime": "2026-07-07T09:30:00",
+    "endDateTime": "2026-07-07T16:00:00",
+    "locationName": "Salle de conférence",
+    "locationAddress": "FST de Tanger",
+    "organizerName": "Club des Étudiants Internationaux (CEI)",
+    "capacity": 30,
+    "registeredCount": 1,
+    "tags": [
+      "Dev perso",
+      "personnalité",
+      "bâtir"
+    ],
+    "createdAt": "2026-05-08T11:17:45.306Z"
+  },
+  {
+    "id": "586ed554-5550-4a54-952f-6534c9505598",
+    "title": "Talk",
+    "description": "Talk and tea",
+    "category": "Talk",
+    "startDateTime": "2026-07-30T15:00:00",
+    "endDateTime": "2026-07-31T17:00:00",
+    "locationName": "Salle E22",
+    "locationAddress": "FST Tanger",
+    "organizerName": "Club Anglais",
+    "capacity": 30,
+    "registeredCount": 1,
+    "tags": [
+      "Anglais",
+      "Soft Skills"
+    ],
+    "createdAt": "2026-05-05T15:03:39.161Z"
+  }
+]
