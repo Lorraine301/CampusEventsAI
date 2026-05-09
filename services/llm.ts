@@ -66,6 +66,7 @@ function serializeEvents(events: Event[]): string {
 // ─────────────────────────────────────────────
 // PROMPT 1 — Recherche en langage naturel
 // ─────────────────────────────────────────────
+
 export async function searchEventsNL(
   query: string,
   events: Event[],
