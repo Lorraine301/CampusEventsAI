@@ -1,9 +1,11 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import {
+  Bell,
   Calendar,
   CheckCircle,
   Clock,
   MapPin,
+  Share2,
   Star,
   XCircle,
 } from "lucide-react-native";
@@ -11,6 +13,7 @@ import React, { useCallback, useState } from "react";
 import {
   Alert,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -19,7 +22,12 @@ import {
 import { useAuth } from "../../../context/AuthContext";
 import { eventsDb } from "../../../database/events";
 import { favoritesDb } from "../../../database/favorites";
+import { notificationsDb } from "../../../database/notifications";
 import { registrationsDb } from "../../../database/registrations";
+import {
+  cancelEventReminders,
+  scheduleEventReminder,
+} from "../../../services/notifications";
 import { Event } from "../../../types";
 
 const CATEGORY_CONFIG: Record<
@@ -43,9 +51,12 @@ export default function EventDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const router = useRouter();
+
   const [event, setEvent] = useState<Event | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [hasReminder, setHasReminder] = useState(false);
+  const [reminderLoading, setReminderLoading] = useState(false);
 
   const loadData = useCallback(() => {
     const e = eventsDb.getById(id);
@@ -57,6 +68,8 @@ export default function EventDetail() {
     if (user) {
       setIsRegistered(registrationsDb.isRegistered(e.id, user.email));
       setIsFavorite(favoritesDb.isFavorite(e.id, user.email));
+      const existingIds = notificationsDb.getByEvent(e.id, user.email);
+      setHasReminder(existingIds.length > 0);
     }
   }, [id, user]);
 
@@ -79,6 +92,70 @@ export default function EventDetail() {
       ? event.registeredCount / event.capacity
       : 0;
 
+  // ── Partage natif ──
+  const handleShare = async () => {
+    const dateStr = new Date(event.startDateTime).toLocaleDateString("fr-FR", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    try {
+      await Share.share({
+        title: event.title,
+        message:
+          `${event.title}\n\n` +
+          `Catégorie : ${event.category}\n` +
+          `Date : ${dateStr}\n` +
+          `Lieu : ${event.locationName}\n` +
+          `Organisateur : ${event.organizerName}\n\n` +
+          `${event.description?.slice(0, 200)}...\n\n` +
+          `— CampusEvents AI`,
+      });
+    } catch {
+      Alert.alert("Erreur", "Impossible de partager cet événement.");
+    }
+  };
+
+  // ── Toggle rappel ──
+  const handleToggleReminder = async () => {
+    if (!user) return;
+    setReminderLoading(true);
+    try {
+      if (hasReminder) {
+        const ids = notificationsDb.getByEvent(event.id, user.email);
+        await cancelEventReminders(ids);
+        notificationsDb.delete(event.id, user.email);
+        setHasReminder(false);
+        Alert.alert("Rappel désactivé", "Notifications annulées.");
+      } else {
+        const ids = await scheduleEventReminder(
+          event.id,
+          event.title,
+          new Date(event.startDateTime),
+          [24, 1],
+        );
+        if (ids.length > 0) {
+          notificationsDb.save(event.id, user.email, ids);
+          setHasReminder(true);
+          Alert.alert("Rappel activé", "Vous serez notifié 24h et 1h avant.");
+        } else {
+          Alert.alert(
+            "Non disponible",
+            "Les rappels nécessitent un build de développement (pas Expo Go).",
+          );
+        }
+      }
+    } catch {
+      Alert.alert("Erreur", "Impossible de gérer le rappel.");
+    } finally {
+      setReminderLoading(false);
+    }
+  };
+
+  // ── Inscription ──
   const handleRegister = () => {
     if (!user) return;
     Alert.alert("Confirmer", `S'inscrire à "${event.title}" ?`, [
@@ -96,11 +173,36 @@ export default function EventDetail() {
           eventsDb.incrementRegistered(event.id);
           setIsRegistered(true);
           setEvent({ ...event, registeredCount: event.registeredCount + 1 });
+
+          // Propose un rappel après inscription
+          Alert.alert(
+            "Rappel automatique",
+            "Voulez-vous un rappel 24h et 1h avant l'événement ?",
+            [
+              { text: "Non merci", style: "cancel" },
+              {
+                text: "Oui",
+                onPress: async () => {
+                  const ids = await scheduleEventReminder(
+                    event.id,
+                    event.title,
+                    new Date(event.startDateTime),
+                    [24, 1],
+                  );
+                  if (ids.length > 0) {
+                    notificationsDb.save(event.id, user.email, ids);
+                    setHasReminder(true);
+                  }
+                },
+              },
+            ],
+          );
         },
       },
     ]);
   };
 
+  // ── Annulation inscription ──
   const handleCancel = () => {
     if (!user) return;
     Alert.alert("Annuler", "Annuler votre inscription ?", [
@@ -108,7 +210,7 @@ export default function EventDetail() {
       {
         text: "Oui",
         style: "destructive",
-        onPress: () => {
+        onPress: async () => {
           registrationsDb.cancel(event.id, user.email);
           eventsDb.decrementRegistered(event.id);
           setIsRegistered(false);
@@ -116,11 +218,19 @@ export default function EventDetail() {
             ...event,
             registeredCount: Math.max(0, event.registeredCount - 1),
           });
+          // Annule les rappels liés
+          const ids = notificationsDb.getByEvent(event.id, user.email);
+          if (ids.length > 0) {
+            await cancelEventReminders(ids);
+            notificationsDb.delete(event.id, user.email);
+            setHasReminder(false);
+          }
         },
       },
     ]);
   };
 
+  // ── Favori ──
   const toggleFav = () => {
     if (!user) return;
     if (isFavorite) {
@@ -143,17 +253,22 @@ export default function EventDetail() {
         <View style={[styles.heroTopBar, { backgroundColor: cfg.color }]} />
         <View style={styles.heroBody}>
           <View style={styles.heroTop}>
-            <View style={[styles.categoryPill, { backgroundColor: cfg.bg }]}>
-              <Text style={[styles.categoryPillText, { color: cfg.color }]}>
-                {event.category}
-              </Text>
-            </View>
-            {isPast && (
-              <View style={styles.pastBadge}>
-                <Clock size={11} color="#9CA3AF" style={{ marginRight: 4 }} />
-                <Text style={styles.pastBadgeText}>Terminé</Text>
+            <View style={styles.heroTopLeft}>
+              <View style={[styles.categoryPill, { backgroundColor: cfg.bg }]}>
+                <Text style={[styles.categoryPillText, { color: cfg.color }]}>
+                  {event.category}
+                </Text>
               </View>
-            )}
+              {isPast && (
+                <View style={styles.pastBadge}>
+                  <Clock size={11} color="#9CA3AF" style={{ marginRight: 4 }} />
+                  <Text style={styles.pastBadgeText}>Terminé</Text>
+                </View>
+              )}
+            </View>
+            <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
+              <Share2 size={16} color="#6B7280" />
+            </TouchableOpacity>
           </View>
           <Text style={styles.eventTitle}>{event.title}</Text>
           <Text style={styles.organizerText}>Par {event.organizerName}</Text>
@@ -268,6 +383,66 @@ export default function EventDetail() {
         </View>
       )}
 
+      {/* Section Rappel — visible uniquement si inscrit et événement futur */}
+      {!isPast && isRegistered && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Rappel</Text>
+          <TouchableOpacity
+            style={[
+              styles.reminderRow,
+              hasReminder && {
+                backgroundColor: cfg.bg,
+                borderColor: cfg.color,
+              },
+            ]}
+            onPress={handleToggleReminder}
+            disabled={reminderLoading}
+            activeOpacity={0.85}
+          >
+            <View style={styles.reminderLeft}>
+              <View
+                style={[
+                  styles.reminderIconWrap,
+                  {
+                    backgroundColor: hasReminder ? cfg.color + "18" : "#F4F3FF",
+                  },
+                ]}
+              >
+                <Bell size={16} color={hasReminder ? cfg.color : "#9CA3AF"} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.reminderTitle,
+                    hasReminder && { color: cfg.color },
+                  ]}
+                >
+                  {hasReminder ? "Rappel activé" : "Activer un rappel"}
+                </Text>
+                <Text style={styles.reminderSub}>
+                  {hasReminder
+                    ? "24h et 1h avant · Appuyer pour désactiver"
+                    : "Notification 24h et 1h avant l'événement"}
+                </Text>
+              </View>
+            </View>
+            <View
+              style={[
+                styles.toggleTrack,
+                hasReminder && { backgroundColor: cfg.color },
+              ]}
+            >
+              <View
+                style={[
+                  styles.toggleThumb,
+                  hasReminder && styles.toggleThumbActive,
+                ]}
+              />
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Actions */}
       <View style={styles.actionsSection}>
         {isPast ? (
@@ -322,36 +497,34 @@ export default function EventDetail() {
             </Text>
           </View>
         ) : (
-          <>
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[styles.registerBtn, { backgroundColor: cfg.color }]}
-                onPress={handleRegister}
-                activeOpacity={0.88}
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.registerBtn, { backgroundColor: cfg.color }]}
+              onPress={handleRegister}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.registerBtnText}>S&apos;inscrire</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.favBtn, isFavorite && styles.favBtnActive]}
+              onPress={toggleFav}
+            >
+              <Star
+                size={16}
+                color={isFavorite ? "#BA7517" : "#6B7280"}
+                fill={isFavorite ? "#BA7517" : "transparent"}
+                style={{ marginRight: 4 }}
+              />
+              <Text
+                style={[
+                  styles.favBtnText,
+                  isFavorite && styles.favBtnTextActive,
+                ]}
               >
-                <Text style={styles.registerBtnText}>S&apos;inscrire</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.favBtn, isFavorite && styles.favBtnActive]}
-                onPress={toggleFav}
-              >
-                <Star
-                  size={16}
-                  color={isFavorite ? "#BA7517" : "#6B7280"}
-                  fill={isFavorite ? "#BA7517" : "transparent"}
-                  style={{ marginRight: 4 }}
-                />
-                <Text
-                  style={[
-                    styles.favBtnText,
-                    isFavorite && styles.favBtnTextActive,
-                  ]}
-                >
-                  Favori
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </>
+                Favori
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -370,35 +543,17 @@ const styles = StyleSheet.create({
     borderBottomColor: "#F0EFF8",
     overflow: "hidden",
   },
-
-  heroTopBar: {
-    height: 6,
-    width: "100%",
-  },
-
-  heroBody: {
-    padding: 20,
-    paddingTop: 18,
-  },
-
+  heroTopBar: { height: 6, width: "100%" },
+  heroBody: { padding: 20, paddingTop: 18 },
   heroTop: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
     marginBottom: 14,
   },
-
-  categoryPill: {
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-
-  categoryPillText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
+  heroTopLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  categoryPill: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  categoryPillText: { fontSize: 12, fontWeight: "700" },
   pastBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -407,13 +562,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-
-  pastBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#9CA3AF",
-  },
-
+  pastBadgeText: { fontSize: 11, fontWeight: "600", color: "#9CA3AF" },
   eventTitle: {
     fontSize: 22,
     fontWeight: "700",
@@ -421,8 +570,17 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     marginBottom: 8,
   },
-
   organizerText: { fontSize: 13, color: "#9CA3AF" },
+  shareBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#F4F3FF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E8E6FF",
+  },
 
   // ─── Info card ─────────────────────────────────────────────────────────────
   infoCard: {
@@ -433,17 +591,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#F0EFF8",
   },
-
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-
-  infoCell: {
-    flex: 1,
-    alignItems: "center",
-  },
-
+  infoRow: { flexDirection: "row", alignItems: "flex-start" },
+  infoCell: { flex: 1, alignItems: "center" },
   infoIconWrap: {
     width: 36,
     height: 36,
@@ -452,7 +601,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 8,
   },
-
   infoCellDivider: {
     width: 1,
     height: 60,
@@ -460,7 +608,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     alignSelf: "center",
   },
-
   infoCellLabel: {
     fontSize: 11,
     color: "#9CA3AF",
@@ -469,45 +616,23 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.3,
   },
-
   infoCellValue: {
     fontSize: 13,
     fontWeight: "600",
     color: "#1F1D3A",
     textAlign: "center",
   },
-
-  infoRowDivider: {
-    height: 1,
-    backgroundColor: "#F0EFF8",
-    marginVertical: 14,
-  },
-
-  capacityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-
+  infoRowDivider: { height: 1, backgroundColor: "#F0EFF8", marginVertical: 14 },
+  capacityRow: { flexDirection: "row", alignItems: "center", gap: 14 },
   capacityLeft: {},
-
-  capacityBarWrap: {
-    flex: 1,
-    gap: 6,
-  },
-
+  capacityBarWrap: { flex: 1, gap: 6 },
   capacityTrack: {
     height: 6,
     borderRadius: 6,
     backgroundColor: "#F0EFF8",
     overflow: "hidden",
   },
-
-  capacityFill: {
-    height: "100%",
-    borderRadius: 6,
-  },
-
+  capacityFill: { height: "100%", borderRadius: 6 },
   fullBadge: {
     backgroundColor: "#FCEBEB",
     borderRadius: 6,
@@ -515,12 +640,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     alignSelf: "flex-start",
   },
-
-  fullBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#A32D2D",
-  },
+  fullBadgeText: { fontSize: 11, fontWeight: "600", color: "#A32D2D" },
 
   // ─── Sections ──────────────────────────────────────────────────────────────
   section: {
@@ -531,7 +651,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#F0EFF8",
   },
-
   sectionTitle: {
     fontSize: 11,
     fontWeight: "700",
@@ -540,45 +659,74 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 10,
   },
-
   descText: { fontSize: 15, color: "#374151", lineHeight: 24 },
-
   tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-
   tagChip: {
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1,
   },
-
   tagChipText: { fontSize: 13, fontWeight: "500" },
 
-  // ─── Actions ───────────────────────────────────────────────────────────────
-  actionsSection: {
-    padding: 16,
-    marginTop: 6,
-    gap: 10,
-  },
-
-  actionRow: {
+  // ─── Rappel ────────────────────────────────────────────────────────────────
+  reminderRow: {
     flexDirection: "row",
-    gap: 10,
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F9F9FF",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: "#E8E6FF",
   },
+  reminderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  reminderIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reminderTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#374151",
+    marginBottom: 2,
+  },
+  reminderSub: { fontSize: 12, color: "#9CA3AF" },
+  toggleTrack: {
+    width: 42,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#D1D5DB",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  toggleThumb: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#fff",
+    alignSelf: "flex-start",
+  },
+  toggleThumbActive: { alignSelf: "flex-end" },
 
+  // ─── Actions ───────────────────────────────────────────────────────────────
+  actionsSection: { padding: 16, marginTop: 6, gap: 10 },
+  actionRow: { flexDirection: "row", gap: 10 },
   registerBtn: {
     flex: 2,
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: "center",
   },
-
-  registerBtnText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-
+  registerBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   favBtn: {
     flex: 1,
     flexDirection: "row",
@@ -590,20 +738,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E8E6FF",
   },
-
-  favBtnActive: {
-    backgroundColor: "#FAEEDA",
-    borderColor: "#BA7517",
-  },
-
-  favBtnText: {
-    fontSize: 13,
-    color: "#6B7280",
-    fontWeight: "600",
-  },
-
+  favBtnActive: { backgroundColor: "#FAEEDA", borderColor: "#BA7517" },
+  favBtnText: { fontSize: 13, color: "#6B7280", fontWeight: "600" },
   favBtnTextActive: { color: "#BA7517" },
-
   favBtnStandalone: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -614,7 +751,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E8E6FF",
   },
-
   statusBox: {
     flexDirection: "row",
     backgroundColor: "#F1EFE8",
@@ -622,16 +758,9 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: "center",
   },
-
   statusBoxGreen: { backgroundColor: "#EAF3DE" },
   statusBoxRed: { backgroundColor: "#FCEBEB" },
-
-  statusBoxText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#6B7280",
-  },
-
+  statusBoxText: { fontSize: 14, fontWeight: "600", color: "#6B7280" },
   cancelBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -640,6 +769,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 13,
   },
-
   cancelBtnText: { color: "#A32D2D", fontSize: 14, fontWeight: "600" },
 });

@@ -56,6 +56,12 @@ export function initDatabase() {
       interests TEXT NOT NULL DEFAULT '[]',
       updatedAt TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS notification_ids (
+      eventId TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      notifId TEXT NOT NULL,
+      PRIMARY KEY (eventId, userId, notifId)
+    );
   `);
 }
 
