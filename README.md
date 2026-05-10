@@ -194,7 +194,7 @@ CampusEventsAI/
 
 ```bash
 # 1. Cloner le repository
-git clone https://github.com/votre-username/CampusEventsAI.git
+git clone https://github.com/Lorraine301/CampusEventsAI.git
 cd CampusEventsAI
 
 # 2. Installer les dépendances
